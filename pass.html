@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Daily Passcodes</title>
+<style>
+  body { font-family: monospace; background: #111; color: #eee; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+  .card { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 2rem 3rem; min-width: 320px; }
+  h2 { margin: 0 0 0.25rem; font-size: 1rem; color: #888; text-transform: uppercase; letter-spacing: 0.1em; }
+  #date { color: #aaa; font-size: 0.85rem; margin-bottom: 1.5rem; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 0.5rem 0; }
+  td:first-child { color: #888; font-size: 0.85rem; padding-right: 2rem; }
+  td:last-child { font-size: 1.6rem; letter-spacing: 0.15em; color: #7dd3fc; }
+  tr + tr td { border-top: 1px solid #2a2a2a; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Daily Passcodes</h2>
+  <div id="date"></div>
+  <table id="table"></table>
+</div>
+<script>
+const USERS = [
+  { label: "Programmer", secret: "2222" },
+  { label: "Admin",      secret: "1234" },
+  { label: "Ops",        secret: "1111" },
+];
+
+async function hmacSha256(secret, message) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false, ["sign"]
+  );
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(message)));
+}
+
+async function dailyPasscode(secret) {
+  const d = new Date();
+  const today = d.getFullYear() + "-"
+    + String(d.getMonth() + 1).padStart(2, "0") + "-"
+    + String(d.getDate()).padStart(2, "0"); // local "yyyy-MM-dd", matches Qt::ISODate
+  const h = await hmacSha256(secret, today);
+  const val = ((h[0] << 24) | (h[1] << 16) | (h[2] << 8) | h[3]) >>> 0;
+  return String(val % 10_000).padStart(4, "0");
+}
+
+(async () => {
+  const d2 = new Date();
+  const today = d2.getFullYear() + "-"
+    + String(d2.getMonth() + 1).padStart(2, "0") + "-"
+    + String(d2.getDate()).padStart(2, "0");
+  document.getElementById("date").textContent = today;
+
+  const table = document.getElementById("table");
+  for (const u of USERS) {
+    const code = await dailyPasscode(u.secret);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${u.label}</td><td>${code}</td>`;
+    table.appendChild(tr);
+  }
+})();
+</script>
+</body>
+</html>
